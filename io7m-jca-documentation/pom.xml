@@ -28,6 +28,12 @@
       <groupId>com.io7m.jnull</groupId>
       <artifactId>io7m-jnull-core</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>io7m-jca-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
