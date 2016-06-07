@@ -20,6 +20,8 @@ import com.io7m.jca.core.JCAgent;
 import com.io7m.jca.core.JCAgentType;
 import com.io7m.jca.core.JCExecutor;
 import com.io7m.jca.core.JCExecutorType;
+import com.io7m.jca.core.JCObservableType;
+import com.io7m.jca.core.JCObservationType;
 import com.io7m.jfunctional.Pair;
 import com.io7m.jfunctional.Unit;
 import org.junit.After;
@@ -33,6 +35,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 public abstract class JCAgentContract
 {
@@ -46,7 +50,7 @@ public abstract class JCAgentContract
 
   protected abstract <T> JCAgentType<T> create(JCExecutorType e, T value);
 
-  final class Counter
+  final class Counter implements JCObservableType<Integer>
   {
     private final JCAgentType<Integer> agent;
 
@@ -68,6 +72,12 @@ public abstract class JCAgentContract
     int read()
     {
       return this.agent.read().intValue();
+    }
+
+    @Override
+    public JCObservationType watch(final Consumer<Integer> handler)
+    {
+      return this.agent.watch(handler);
     }
   }
 
@@ -162,6 +172,41 @@ public abstract class JCAgentContract
     JCAgentContract.LOG.debug("finished f0");
 
     Assert.assertEquals(3L, (long) c.read());
+  }
+
+  @Test
+  public final void testCounterObservation()
+    throws Exception
+  {
+    final AtomicInteger accum = new AtomicInteger(0);
+
+    final Counter c = new Counter(this.executor);
+    Assert.assertEquals(0L, (long) c.read());
+
+    final JCObservationType o =
+      c.watch((i) -> accum.addAndGet(i.intValue()));
+
+    final CompletableFuture<?> f0 = c.increment()
+      .thenCompose(u -> c.increment())
+      .thenCompose(u -> c.increment());
+
+    f0.get();
+    JCAgentContract.LOG.debug("finished f0");
+
+    Assert.assertEquals(3L, (long) c.read());
+    Assert.assertEquals((long) (1 + 2 + 3), (long) accum.get());
+
+    o.unwatch();
+
+    final CompletableFuture<Unit> f1 = c.increment()
+      .thenCompose(u -> c.increment())
+      .thenCompose(u -> c.increment());
+
+    f1.get();
+    JCAgentContract.LOG.debug("finished f1");
+
+    Assert.assertEquals(6L, (long) c.read());
+    Assert.assertEquals((long) (1 + 2 + 3), (long) accum.get());
   }
 
   @Test

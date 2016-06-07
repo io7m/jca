@@ -16,36 +16,15 @@
 
 package com.io7m.jca.core;
 
-import com.io7m.jfunctional.Pair;
-
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 /**
- * The type of agents that have internal state of type {@code S}. Values of type
- * {@code S} are assumed to be immutable.
- *
- * @param <S> The type of internal state
+ * An observation.
  */
 
-public interface JCAgentType<S> extends JCObservableType<S>
+public interface JCObservationType
 {
   /**
-   * Evaluate a function on the agent.
-   *
-   * @param op  A function that accepts the current state value and returns a
-   *            new state value and a result
-   * @param <T> A future that returns the result of {@code op}
-   *
-   * @return A future representing the function to be evaluated
+   * Stop observing.
    */
 
-  <T> CompletableFuture<T> send(Function<S, Pair<S, T>> op);
-
-  /**
-   * @return The current state value
-   */
-
-  S read();
+  void unwatch();
 }
