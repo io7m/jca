@@ -21,13 +21,18 @@ import com.io7m.jca.core.JCExecutorType;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 public abstract class JCExecutorContract
 {
@@ -36,6 +41,11 @@ public abstract class JCExecutorContract
   protected abstract JCExecutorType create(int threads);
 
   protected abstract JCExecutorType createWithFactory(int threads, ThreadFactory tf);
+
+  @Rule public final ExpectedException expected = ExpectedException.none();
+
+  @Rule
+  public Timeout globalTimeout = Timeout.seconds(20L);
 
   @Before
   public final void setUp()
@@ -51,12 +61,141 @@ public abstract class JCExecutorContract
   }
 
   @Test
-  public final void testFactory()
+  public final void testShutdownRejected()
   {
-    final JCExecutorType e = this.createWithFactory(
-      4, r -> new Thread(null, r, "t", 64L));
+    final JCExecutorType e = this.create(4);
 
     e.shutdown();
+    this.expected.expect(RejectedExecutionException.class);
+    e.submit(0, Object::new);
+  }
+
+  @Test
+  public final void testShutdownAwaitHangingTerminated()
+    throws Exception
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.submit(0, () -> {
+      try {
+        Thread.sleep(TimeUnit.MILLISECONDS.convert(
+          1L,
+          TimeUnit.SECONDS));
+        return Long.valueOf(0L);
+      } catch (final InterruptedException x) {
+        x.printStackTrace();
+        return Long.valueOf(0L);
+      }
+    });
+
+    e.shutdown();
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertFalse(e.isTerminated());
+    e.awaitTermination(3L, TimeUnit.SECONDS);
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertTrue(e.isTerminated());
+  }
+
+  @Test
+  public final void testShutdownNowAwaitHangingTerminated()
+    throws Exception
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.submit(0, () -> {
+      try {
+        Thread.sleep(TimeUnit.MILLISECONDS.convert(
+          1L,
+          TimeUnit.SECONDS));
+        return Long.valueOf(0L);
+      } catch (final InterruptedException x) {
+        x.printStackTrace();
+        return Long.valueOf(0L);
+      }
+    });
+
+    final List<Runnable> xs = e.shutdownNow();
+    Assert.assertEquals(0L, (long) xs.size());
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertFalse(e.isTerminated());
+    e.awaitTermination(3L, TimeUnit.SECONDS);
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertTrue(e.isTerminated());
+  }
+
+  @Test
+  public final void testShutdownAwaitTerminated()
+    throws Exception
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.shutdown();
+    e.awaitTermination(1L, TimeUnit.SECONDS);
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertTrue(e.isTerminated());
+  }
+
+  @Test
+  public final void testShutdownNowAwaitTerminated()
+    throws Exception
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.shutdownNow();
+    e.awaitTermination(1L, TimeUnit.SECONDS);
+    Assert.assertTrue(e.isShutdown());
+    Assert.assertTrue(e.isTerminated());
+  }
+
+  @Test
+  public final void testShutdownTwiceOK()
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.shutdown();
+    e.shutdown();
+  }
+
+  @Test
+  public final void testShutdownIsShutdown()
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.shutdown();
+    Assert.assertTrue(e.isShutdown());
+  }
+
+  @Test
+  public final void testShutdownNowIsShutdown()
+  {
+    final JCExecutorType e = this.create(4);
+
+    e.shutdown();
+    Assert.assertTrue(e.isShutdown());
+  }
+
+  @Test
+  public final void testShutdownNowTwiceOK()
+  {
+    final JCExecutorType e = this.create(4);
+
+    final List<Runnable> xs0 = e.shutdownNow();
+    Assert.assertEquals(0L, (long) xs0.size());
+    final List<Runnable> xs1 = e.shutdownNow();
+    Assert.assertEquals(0L, (long) xs1.size());
+
+    Assert.assertNotSame(xs0, xs1);
+  }
+
+  @Test
+  public final void testShutdownNowRejected()
+  {
+    final JCExecutorType e = this.create(4);
+
+    final List<Runnable> xs = e.shutdownNow();
+    Assert.assertEquals(0L, (long) xs.size());
+    this.expected.expect(RejectedExecutionException.class);
+    e.submit(0, Object::new);
   }
 
   @Test
