@@ -23,8 +23,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <siteReposDirectory>/com/io7m/jca</siteReposDirectory>
-    <siteDocumentationDirectory>/com/io7m/jca/io7m-jca-documentation</siteDocumentationDirectory>
+    <siteReposDirectory>com/io7m/jca</siteReposDirectory>
+    <siteDocumentationDirectory>com/io7m/jca/io7m-jca-documentation</siteDocumentationDirectory>
   </properties>
 
   <licenses>
